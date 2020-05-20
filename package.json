@@ -1,0 +1,27 @@
+{
+  "name": "lanrelay2mqtt",
+  "version": "0.1.0",
+  "description": "Lan device to MQTT bridge",
+  "main": "index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Koenkk/zigbee2mqtt.git"
+  },
+  "engines": {
+    "node": "^10 || ^12 || ^13"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "mqtt"
+  ],
+  "author": "Sergey Kuzin",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "express": "^4.17.1",
+    "moment": "^2.25.3",
+    "mqtt": "^4.1.0",
+    "winston": "^3.2.1"
+  }
+}
