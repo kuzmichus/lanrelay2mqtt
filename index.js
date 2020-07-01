@@ -113,7 +113,7 @@ client.on('message', function (topic, message) {
   // message is Buffer
   const path = topic.split('/');
 
-  if (config.reset_topic.indexOf(topic) > -1 && '0' != message.toString()) {
+  if (config.reset_topic.indexOf(topic) > -1 && '' != message.toString()) {
     setTimeout(() => client.publish(topic, null), 1000);
   }  else  if ('set' == path[3]) {
     let server = path[1].split('_').join('.');
@@ -161,9 +161,9 @@ async function init_object(server) {
       "state_on": "ON",
       "state_off": "OFF",
       "value_template":"{{ value_json.state_relay_" + channel + " }}",
-      "command_topic":config.base_topic + '/' + channel + '/relay_' + channel + '/set',
-      "state_topic":config.base_topic + "/" + channel ,
-      "json_attributes_topic":config.base_topic +"/" + channel,
+      "command_topic":config.base_topic + '/' + relay_name + '/relay_' + channel + '/set',
+      "state_topic":config.base_topic + "/" + relay_name ,
+      "json_attributes_topic":config.base_topic +"/" + relay_name,
       "name":relay_name + "_switch_relay_" + channel,
       "unique_id":relay_name + "_switch_relay_" + channel + "_lanrelay2mqtt",
       "device":{
@@ -175,7 +175,7 @@ async function init_object(server) {
         },
       "availability_topic": config.base_topic + '/state'
       }
-      client.publish(config.discovery_prefix + '/switch/' + relay_name + '/switch_relay_' + channel + '/config', JSON.stringify(answer))
+      client.publish(config.discovery_prefix + '/switch/' + relay_name + '/switch_relay_' + channel + '/config', JSON.stringify(answer), {retain: true})
   }
 
 }
