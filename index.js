@@ -83,7 +83,7 @@ const config = {
   ]
 }
 
-const client  = mqtt.connect('mqtt://192.168.1.10')
+const client  = mqtt.connect('mqtt://192.168.1.1')
 
 
 client.on('connect', () => {
@@ -114,7 +114,7 @@ client.on('message', function (topic, message) {
   const path = topic.split('/');
 
   if (config.reset_topic.indexOf(topic) > -1 && '0' != message.toString()) {
-    setTimeout(() => client.publish(topic, '0'), 500);
+    setTimeout(() => client.publish(topic, null), 1000);
   }  else  if ('set' == path[3]) {
     let server = path[1].split('_').join('.');
     [tmp, rally] = path[2].split('_');
