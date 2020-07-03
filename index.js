@@ -5,14 +5,29 @@ const { exec } = require("child_process");
 const util = require('util');
 const _exec = util.promisify(require('child_process').exec);
 
+const config = {
+  base_topic: 'lanrelay2mqtt',
+  discovery_prefix: 'homeassistant',
+  time: 5,
+  relay_list: [
+    '192.168.1.231',
+    '192.168.1.100'
+  ],
+  reset_topic: [
+    '/ParenLight1/rcdata'
+  ]
+}
+
+
 //const logger = require('./lib/logger');
 
-const infoDevice = (hardwareVersion, softwareVersion, model, number) => {
+const infoDevice = (ip, hardwareVersion, softwareVersion, model, number) => {
   return {
     hardwareVersion: hardwareVersion,
     softwareVersion: softwareVersion,
     model: model,
-    number: number
+    number: number,
+    ip: ip,
   }
 }
 
@@ -33,54 +48,6 @@ const switchEndpoint = (endpointName) => {
 async function aexec(params) {
   const { stdout, stderr } = await _exec(params);
   return stdout;
-}
-
-const devices = {
-  'IOT RELAY-4': {
-    init: async (ip) => {
-      const url = `http://${ip}/main.cgi?cur_time=` + Date.now();
-      let ret = await aexec('/usr/bin/curl "' + url + '"');
-      const info = ret.split('&');
-      return infoDevice(info[1], info[2], info[3], info[4])
-    },
-    state: async (ip) => {
-      const url = `http://${ip}/relay_cgi_load.cgi?` + Date.now();
-      const ret = await aexec('/usr/bin/curl "' + url + '"');
-      const state = ret.split('&');
-      return [state[3], state[4], state[5], state[6]]
-    },
-    set: async (ip, relay, state) => {
-      const url = `http://${ip}/relay_cgi.cgi?type=0&relay=${relay}&on=${state}&time=0&pwd=0&` + Date.now();
-      const ret = await aexec('/usr/bin/curl "' + url + '"');
-      const _ret = ret.split('&');
-      return _ret[4]
-    }
-  }
-}
-
-const mapping = {
-  'IOT RELAY-4': [switchEndpoint('relay_1'), switchEndpoint('relay_2'), switchEndpoint('relay_3'), switchEndpoint('relay_4')]
-}
-
-async function m(){
-  //console.log(await devices['IOT RELAY-4'].init('192.168.1.231'));
-  //console.log(await devices['IOT RELAY-4'].state('192.168.1.231'));
-  console.log(await devices['IOT RELAY-4'].set('192.168.1.231', 0, 1));
-}
-
-//m();
-
-
-const config = {
-  base_topic: 'lanrelay2mqtt',
-  discovery_prefix: 'homeassistant',
-  time: 15,
-  relay_list: [
-    '192.168.1.231'
-  ],
-  reset_topic: [
-    '/ParenLight1/rcdata'
-  ]
 }
 
 const client  = mqtt.connect('mqtt://192.168.1.1')
@@ -133,33 +100,50 @@ client.on('message', function (topic, message) {
 
 })
 
+
+async function init(ip) {
+  const url = `http://${ip}/main.cgi?cur_time=` + Date.now();
+  let ret = await aexec('/usr/bin/curl "' + url + '"');
+  const info = ret.split('&');
+  return infoDevice(ip, info[1], info[2], info[3], info[4])
+}
+
+async function state(ip) {
+  const url = `http://${ip}/relay_cgi_load.cgi?` + Date.now();
+  const ret = await aexec('/usr/bin/curl "' + url + '"');
+  const state = ret.split('&');
+  let ret_arr = [];
+  for (let i = 3; i < 3 + parseInt(state[2]); i++) {
+    ret_arr.push(state[i]);
+  }
+
+  return ret_arr
+}
+
 async function load_state(server) {
-  const state = await devices['IOT RELAY-4'].state('192.168.1.231')
+  const status = await state(server)
   const relay_name = server.split('.').join('_');
 
   let answer = {}
-  for (let relay in state) {
+  for (let relay in status) {
     let channel = parseInt(relay) + 1
-    answer['state_relay_' + channel] = state[relay] =='1'?'ON':'OFF';
+    answer['state_relay_' + channel] = status[relay] =='1'?'ON':'OFF';
     client.subscribe('lanrelay2mqtt/' + relay_name + '/relay_' + channel + '/set')
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     }
+  }
   client.publish(config.base_topic + '/' + relay_name, JSON.stringify(answer))
 }
 
 async function init_object(server) {
-  const info = await devices['IOT RELAY-4'].init('192.168.1.231');
-  const state = await devices['IOT RELAY-4'].state('192.168.1.231')
+  const info = await init(server);
+  let status = await state(server)
   const relay_name = server.split('.').join('_');
 
-
-  for (let relay in state) {
+  for (let relay in status) {
     let channel = parseInt(relay) + 1;
     let answer = {}
     answer = {
       "payload_off":"OFF",
       "payload_on":"ON",
-      "state_on": "ON",
-      "state_off": "OFF",
       "value_template":"{{ value_json.state_relay_" + channel + " }}",
       "command_topic":config.base_topic + '/' + relay_name + '/relay_' + channel + '/set',
       "state_topic":config.base_topic + "/" + relay_name ,
@@ -169,12 +153,13 @@ async function init_object(server) {
       "device":{
         "identifiers":["lanrelay2mqtt_" + relay_name],
         "name":relay_name,
-        "sw_version":"LanRelay2mqtt 0.1.0",
+        "sw_version":"Hardwore Version: " + info.hardwareVersion + ', Software Version:' + info.softwareVersion,
         "model":info['model'],
           "manufacturer":"Custom devices (DiY)"
         },
       "availability_topic": config.base_topic + '/state'
       }
+
       client.publish(config.discovery_prefix + '/switch/' + relay_name + '/switch_relay_' + channel + '/config', JSON.stringify(answer), {retain: true})
   }
 
