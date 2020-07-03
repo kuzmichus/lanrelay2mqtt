@@ -1,0 +1,14 @@
+[Unit]
+Description=lanraleyproxy
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/node index.js
+WorkingDirectory=/usr/share/lanrelay2mqtt
+StandardOutput=inherit
+StandardError=inherit
+Restart=always
+User=pi
+
+[Install]
+WantedBy=multi-user.target
